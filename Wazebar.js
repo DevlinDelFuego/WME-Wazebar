@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Wazebar
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2023.06.20.01
+// @version      2023.06.21.01
 // @description  Displays a bar at the top of the editor that displays inbox, forum & wiki links
 // @author       JustinS83
 // @include      https://beta.waze.com/*
@@ -10,9 +10,10 @@
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
 // @exclude      https://www.waze.com/user/editor*
-// @require      https://greasyfork.org/scripts/27023-jscolor/code/JSColor.js
+// @require      https://greasyfork.org/scripts/27023-wme-jscolor/code/WME-JSColor.js
 // @require      https://greasyfork.org/scripts/27254-clipboard-js/code/clipboardjs.js
 // @connect      status.waze.com
+// @connect      storage.googleapis.com
 // @grant        GM_xmlhttpRequest
 // @contributionURL https://github.com/WazeDev/Thank-The-Authors
 // ==/UserScript==
@@ -186,7 +187,7 @@ var forumUnreadOffset = 0;
         ].join(' '));
 
         if(forumPage){
-            $('wz-header').prepend($Wazebar);
+            $('.main_content').prepend($Wazebar);
             //$('#Wazebar').css('position', 'fixed');
             $('#Wazebar').css('z-index','9999999');
             $('#Wazebar').css('margin-left','20px');
@@ -228,55 +229,11 @@ var forumUnreadOffset = 0;
             $('#WazeBarFavorites').css({'display':'none'});
         });
 
-        if (WazeBarSettings.NAServerUpdate) {
-            fetch('https://storage.googleapis.com/waze-tile-build-public/release-history/na-feed-v2.xml')
-                .then(response => response.text())
-                .then(xml => {
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xml, 'text/xml');
-                const entry = xmlDoc.querySelector('entry');
-                const updated = entry.querySelector('updated').textContent;
-
-                // Extract date and time from the "updated" element
-                const dateTime = new Date(updated);
-                const options = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true };
-                const dateTimeString = dateTime.toLocaleString('en-US', options);
-
-                // Process the extracted data as needed
-                console.log('Latest NA Server Update:');
-                console.log('Date and Time:', dateTimeString);
-
-                $('#WazebarStatus').text('NA Server Update: ' + dateTimeString);
-            })
-                .catch(error => {
-                console.error('Error fetching NA RSS feed:', error);
-                $('#WazebarStatus').text('NA Server Update: Error fetching update');
-            });
-        }
-
-        if (WazeBarSettings.ROWServerUpdate) {
-            fetch('https://storage.googleapis.com/waze-tile-build-public/release-history/intl-feed-v2.xml')
-                .then(response => response.text())
-                .then(xml => {
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xml, 'text/xml');
-                const entry = xmlDoc.querySelector('entry');
-                const updated = entry.querySelector('updated').textContent;
-
-                // Extract date and time from the "updated" element
-                const dateTime = new Date(updated);
-                const options = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true };
-                const dateTimeString = dateTime.toLocaleString('en-US', options);
-
-                // Process the extracted data as needed
-                console.log('Latest ROW Server Update:');
-                console.log('Date and Time:', dateTimeString);
-
-                $('#WazebarStatusROW').text('ROW Server Update: ' + dateTimeString);
-            })
-                .catch(error => {
-                console.error('Error fetching ROW RSS feed:', error);
-                $('#WazebarStatusROW').text('ROW Server Update: Error fetching update');
+        if(WazeBarSettings.NAServerUpdate || WazeBarSettings.ROWServerUpdate){
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: 'https://status.waze.com/feeds/posts/default',
+                onload: ParseStatusFeed
             });
         }
 
@@ -460,23 +417,19 @@ var forumUnreadOffset = 0;
         return count;
     }
 
-    function ParseStatusFeed(data) {
-        let re;
+    function ParseStatusFeed(data){
+        let re = /North American map tiles were successfully updated to: (.*?)<\/title>/;
         let result;
-
-        if (WazeBarSettings.NAServerUpdate) {
-            re = /North America map tiles were successfully updated to: (.*?)<\/title>/;
-            result = data.querySelector('title').textContent.match(re)[1].trim();
-            const currentDate = new Date().toLocaleString();
-            result += " | Last Update: " + currentDate;
+        if(WazeBarSettings.NAServerUpdate){
+            result = data.responseText.match(re)[1].trim();
+            if(WazeBarSettings.ROWServerUpdate)
+                result += " | "
             $('#WazebarStatus').append(result);
         }
 
         if (WazeBarSettings.ROWServerUpdate) {
             re = /International map tiles were successfully updated to: (.*?)<\/title>/;
-            result = data.querySelector('title').textContent.match(re)[1].trim();
-            const currentDate = new Date().toLocaleString();
-            result += " | Last Update: " + currentDate;
+            result = data.responseText.match(re)[1].trim();
             $('#WazebarStatusROW').append(result);
         }
     }
