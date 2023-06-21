@@ -181,9 +181,8 @@ var forumUnreadOffset = 0;
             BuildRegionWikiEntries(),
             BuildStateWikiEntries(),
             BuildCurrentStateEntries(),
-            WazeBarSettings.NAServerUpdate ? '<div style="display:inline;" id="WazebarStatus">NA Server Update: <span id="NADateTime"></span></div>' : '',
-            WazeBarSettings.ROWServerUpdate ? '<div style="display:inline;" id="WazebarStatusROW">ROW Server Update: <span id="ROWDateTime"></span></div>' : ''
-
+            WazeBarSettings.NAServerUpdate ? '<div style="display:inline;" id="WazebarStatus">NA Server Update: </div>' : '',
+            WazeBarSettings.ROWServerUpdate ? '<div style="display:inline;" id="WazebarStatusROW">ROW Server Update: </div>' : ''
         ].join(' '));
 
         if(forumPage){
@@ -229,10 +228,18 @@ var forumUnreadOffset = 0;
             $('#WazeBarFavorites').css({'display':'none'});
         });
 
-        if(WazeBarSettings.NAServerUpdate || WazeBarSettings.ROWServerUpdate){
+        if(WazeBarSettings.NAServerUpdate){
             GM_xmlhttpRequest({
                 method: "GET",
-                url: 'https://status.waze.com/feeds/posts/default',
+                url: 'https://storage.googleapis.com/waze-tile-build-public/release-history/na-feed-v2.xml',
+                onload: ParseStatusFeed
+            });
+        }
+
+        if(WazeBarSettings.ROWServerUpdate){
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: 'https://storage.googleapis.com/waze-tile-build-public/release-history/intl-feed-v2.xml',
                 onload: ParseStatusFeed
             });
         }
@@ -418,18 +425,17 @@ var forumUnreadOffset = 0;
     }
 
     function ParseStatusFeed(data){
-        let re = /North American map tiles were successfully updated to: (.*?)<\/title>/;
+        let re = /North America map tiles were successfully updated to: (.*?)<\/title>/;
         let result;
         if(WazeBarSettings.NAServerUpdate){
-            result = data.responseText.match(re)[1].trim();
+            result = new Date(data.responseText.match(re)[1].trim()).toLocaleString();
             if(WazeBarSettings.ROWServerUpdate)
                 result += " | "
             $('#WazebarStatus').append(result);
         }
-
-        if (WazeBarSettings.ROWServerUpdate) {
+        if(WazeBarSettings.ROWServerUpdate){
             re = /International map tiles were successfully updated to: (.*?)<\/title>/;
-            result = data.responseText.match(re)[1].trim();
+            result = new Date(data.responseText.match(re)[1].trim()).toLocaleString();
             $('#WazebarStatusROW').append(result);
         }
     }
